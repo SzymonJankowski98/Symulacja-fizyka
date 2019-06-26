@@ -1,13 +1,17 @@
 import tkinter
 import random
 import math
+import numpy
+import matplotlib.pylab as plt
 
 W1 = 10
 W2 = -10
-RADIUS = 8
-WIDTH = 1000
-HEIGHT = 1000
-TIME_LIMIT = 10
+RADIUS = 5
+WIDTH = 500
+HEIGHT = 500
+TIME_LIMIT = 1000
+ATOMS = 100
+OUT_FILE = "Wykresik.txt"
 
 
 def scalar(v1, v2):
@@ -42,7 +46,7 @@ class Simulation:
         self.n = n
         self.w = self.w_counter()
         self.atoms = self.generator()
-        self.deltat = 1/(self.w)
+        self.deltat = 1 / (self.w)*100
         self.state = []
         self.state_counter = 0
 
@@ -56,19 +60,45 @@ class Simulation:
         tab = []
         speed = self.w / self.n * 2
         for i in range(10):
+            #p1 = RADIUS+RADIUS/50
+            #p2 = RADIUS+RADIUS/50
             for j in range(self.n // 10):
-                tab.append(Atom(random.randint(RADIUS, WIDTH // 10), random.randint(i * HEIGHT // 10, i * HEIGHT // 10 + HEIGHT // 10), RADIUS, speed))
+                '''if p2 < HEIGHT / 10:
+                    tab.append(Atom(p1, p2 + i * (HEIGHT//10), RADIUS, speed))
+                    p1 += 2*RADIUS + RADIUS / 50
+                    if p1 > WIDTH/10:
+                        p1 = RADIUS+RADIUS/50
+                        p2 += 2*RADIUS+RADIUS/50
+                else:
+                    tab.append(Atom(random.randint(RADIUS, WIDTH // 10 - 1), random.randint(i * HEIGHT // 10 + 1, i * HEIGHT // 10 + HEIGHT // 10 - 1), RADIUS, speed))
+                '''
+                x = random.randint(RADIUS, WIDTH // 10 - 1)
+                y = random.randint(i * HEIGHT // 10 + 1, i * HEIGHT // 10 + HEIGHT // 10 - 1)
+                ok = self.no_crash(tab, x, y)
+                while not ok:
+                    x = random.randint(RADIUS, WIDTH // 10 - 1)
+                    y = random.randint(i * HEIGHT // 10 + 1, i * HEIGHT // 10 + HEIGHT // 10 - 1)
+                    ok = self.no_crash(tab, x, y)
+                tab.append(Atom(x, y, RADIUS, speed))
+
         return tab
+
+    def no_crash(self, tab, x, y):
+        for i in tab:
+            if math.sqrt((i.r[0] - x) ** 2 + (i.r[1] - y) ** 2) < RADIUS * 2 + RADIUS / 100:
+                return False
+        return True
+
 
     def loop(self):
         simulation_window.delete(tkinter.ALL)
         for i in self.atoms:
             simulation_window.create_oval(i.r[0] - i.radius, i.r[1] - i.radius, i.r[0] + i.radius, i.r[1] + i.radius, fill=('#%02x%02x%02x' % (0, 255, 0)))
         self.crash_atom()
-        self.move()
         self.crash_wall()
+        self.move()
         self.save_state()
-        if (self.state_counter+1)*self.deltat < TIME_LIMIT:
+        if (self.state_counter + 1) * self.deltat < TIME_LIMIT:
             main_window.after(1, self.loop)
         else:
             main_window.quit()
@@ -107,12 +137,12 @@ class Simulation:
         if self.state_counter == 0:
             time = self.deltat
         else:
-            time = self.state[self.state_counter-1][0] + self.deltat
+            time = self.state[self.state_counter - 1][0] + self.deltat
         self.state.append([time])
         for i in range(len(self.atoms)):
-            self.state[self.state_counter].append([self.atoms[i].r[0], self.atoms[i].r[1], self.atoms[i].v[0], self.atoms[i].v[1]])
+            self.state[self.state_counter].append(
+                [self.atoms[i].r[0], self.atoms[i].r[1], self.atoms[i].v[0], self.atoms[i].v[1]])
         self.state_counter += 1
-
 
     def excecice3(self):
         results = []
@@ -121,8 +151,7 @@ class Simulation:
             for j in range(1, len(self.state[0])):
                 result[self.whitch_state(self.state[i][j])] += 1
             results.append([self.state[i][0], result])
-        print(results)
-
+        return results
 
     def whitch_state(self, atom):
         nx = int((atom[0] / WIDTH) * 10)
@@ -131,24 +160,73 @@ class Simulation:
         ny = int((atom[1] / HEIGHT) * 10)
         if ny == 10:
             ny = 9
-        nvx = int(((atom[2]+W1) / (2*W1)) * 10)
-        if nvx == 10:
-            nvx = 9
-        nvy = int(((atom[3]+W1) / (2*W1)) * 10)
-        if nvy == 10:
-            nvy = 9
-        return nx*1000+ny*100+nvx*10+nvy
+        nvx = int(((atom[2] + W1) / (2 * W1)) * 6)
+        if nvx == 6:
+            nvx = 5
+        nvy = int(((atom[3] + W1) / (2 * W1)) * 6)
+        if nvy == 6:
+            nvy = 5
+        return nx * 1000 + ny * 100 + nvx * 10 + nvy
 
-#simulation part
+    def excecice4(self, tab):
+        N = math.factorial(ATOMS)
+        results = []
+        for i in range(len(tab)):
+            temp = 1
+            for j in range(0, len(tab[i][1])):
+                if tab[i][1][j] > 0:
+                    temp *= tab[i][1][j]
+            # temps = math.exp(temp * math.log(temp) - temp)
+            # result = N /(temps)
+            results.append([tab[i][0], temp])
+        return N, results
+
+    def excecice5(self, N, tab):
+        ns = math.log(N)
+        results = []
+        for i in range(len(tab)):
+            ok = tab[i][1] * math.log(tab[i][1]) - tab[i][1]
+            uno = ns - ok
+            results.append([tab[i][0], uno])
+        return results
+
+    def saving(self, tab):
+        file = open(OUT_FILE, "w")
+        for i in range(len(tab)):
+            file.write('{}\t{}\n'.format(tab[i][0], tab[i][1]))
+        file.close()
+
+    def chart(self, tab):
+        x_axis = []
+        y_axis = []
+        for i in tab:
+            x_axis.append(i[0])
+            y_axis.append(i[1])
+        plt.title("wykres")
+        plt.plot(x_axis, y_axis, color='darkblue')
+        plt.xlabel('x')
+        plt.ylabel('y')
+        plt.grid(True)
+        plt.legend()
+        plt.show()
+
+
 main_window = tkinter.Tk()
 
 simulation_window = tkinter.Canvas(main_window, width=WIDTH, height=HEIGHT, bg="Black")
 simulation_window.pack()
 
-sim = Simulation(10)
+sim = Simulation(ATOMS)
 sim.loop()
 
 main_window.mainloop()
 
-#execice3
-sim.excecice3()
+x3 = sim.excecice3()
+for j in range(len(x3)):
+    l = 0
+    for i in range(1, len(x3[0][1])):
+        if x3[j][1][i] > 1:
+            print(j, x3[j][1][i])
+N, x4 = sim.excecice4(x3)
+x5 = sim.excecice5(N, x4)
+sim.chart(x5)
